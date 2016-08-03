@@ -54,7 +54,7 @@ import io.jpress.model.Content;
 import io.jpress.model.query.ContentQuery;
 import io.jpress.model.query.OptionQuery;
 import io.jpress.router.RouterMapping;
-import io.jpress.template.Module;
+import io.jpress.template.TplModule;
 import io.jpress.template.TemplateUtils;
 import io.jpress.utils.CookieUtils;
 import io.jpress.utils.FileUtils;
@@ -246,16 +246,18 @@ public class WechatMessageController extends MsgController {
 	 * @return
 	 */
 	private boolean searchProcess(InMsg message, String userInput) {
-		List<Module> modules = TemplateUtils.currentTemplate().getModules();
+		List<TplModule> modules = TemplateUtils.currentTemplate().getModules();
 		if (modules != null && modules.size() > 0) {
-			for (Module module : modules) {
+			for (TplModule module : modules) {
 
 				// 是否启用搜索
-				Boolean bool = OptionQuery.me().findValueAsBool(String.format("wechat_search_%s_enable", module.getName()));
+				Boolean bool = OptionQuery.me()
+						.findValueAsBool(String.format("wechat_search_%s_enable", module.getName()));
 				if (bool != null && bool) {
 
 					// 搜索关键字 前缀
-					String prefix = OptionQuery.me().findValue(String.format("wechat_search_%s_prefix", module.getName()));
+					String prefix = OptionQuery.me()
+							.findValue(String.format("wechat_search_%s_prefix", module.getName()));
 
 					String searcheKey = null;
 					if (StringUtils.isNotBlank(prefix)) {
@@ -276,23 +278,33 @@ public class WechatMessageController extends MsgController {
 							count = 10;
 						}
 
+						String domain = OptionQuery.me().findValue("web_domain");
+						if (StringUtils.isBlank(domain)) {
+							OutTextMsg otm = new OutTextMsg(message);
+							otm.setContent("您还没有配置您的域名，请先在后台的【设置】>【常规】里配置您的网站域名！");
+							render(otm);
+							return true;
+						}
+
 						List<Content> contents = ContentQuery.me().searchByModuleAndTitle(module.getName(), searcheKey,
 								count);
-						if (contents != null && contents.size() > 0) {
-							OutNewsMsg out = new OutNewsMsg(message);
-							for (Content content : contents) {
-								News news = new News();
-								news.setTitle(content.getTitle());
-								news.setDescription(content.getSummary());
-								news.setPicUrl(content.getFirstImage());
-								news.setUrl(content.getUrl());
-								out.addNews(news);
-							}
-							render(out);
-						} else {
+
+						if (contents == null || contents.isEmpty()) {
 							// 搜索不到内容时
 							processDefaultReplay("wechat_search_none_content", message);
+							return true;
 						}
+
+						OutNewsMsg out = new OutNewsMsg(message);
+						for (Content content : contents) {
+							News news = new News();
+							news.setTitle(content.getTitle());
+							news.setDescription(content.getSummary());
+							news.setPicUrl(domain + content.getFirstImage());
+							news.setUrl(domain + content.getUrl());
+							out.addNews(news);
+						}
+						render(out);
 
 						return true;
 					}
@@ -357,7 +369,7 @@ public class WechatMessageController extends MsgController {
 
 		String replyContent = OptionQuery.me().findValue(optionKey);
 
-		if (!StringUtils.isNotBlank(replyContent)) {
+		if (StringUtils.isBlank(replyContent)) {
 			renderNull();
 			return;
 		}
@@ -367,7 +379,7 @@ public class WechatMessageController extends MsgController {
 
 	private void textOrSeniorRender(InMsg message, String replyContent) {
 		if (isSeniorReplay(replyContent)) {
-			OutMsg outMsg = ProcesserInvoker.invoke(replyContent, message);
+			OutMsg outMsg = ProcesserManager.me().invoke(replyContent, message);
 			if (outMsg != null) {
 				render(outMsg);
 			} else {

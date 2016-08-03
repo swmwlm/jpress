@@ -24,6 +24,8 @@ import org.jsoup.Jsoup;
 
 import com.jfinal.core.JFinal;
 import com.jfinal.kit.PathKit;
+import com.jfinal.plugin.ehcache.CacheKit;
+import com.jfinal.plugin.ehcache.IDataLoader;
 
 import io.jpress.Consts;
 import io.jpress.model.ModelSorter.ISortModel;
@@ -58,6 +60,14 @@ public class Content extends BaseContent<Content> implements ISortModel<Content>
 	private Content parent;
 	private List<Metadata> metadatas;
 
+	public <T> T getTemp(Object key, IDataLoader dataloader) {
+		return CacheKit.get("content_temp", key, dataloader);
+	}
+
+	public void clearTemp() {
+		CacheKit.removeAll("content_temp");
+	}
+
 	@Override
 	public boolean update() {
 		if (getId() != null) {
@@ -66,11 +76,14 @@ public class Content extends BaseContent<Content> implements ISortModel<Content>
 		if (getSlug() != null) {
 			removeCache(getSlug());
 		}
+
+		clearTemp();
+
 		return super.update();
 	}
 
 	@Override
-	public boolean saveOrUpdate() {
+	public boolean save() {
 		if (getId() != null) {
 			removeCache(getId());
 		}
@@ -79,7 +92,9 @@ public class Content extends BaseContent<Content> implements ISortModel<Content>
 			removeCache(getSlug());
 		}
 
-		return super.saveOrUpdate();
+		clearTemp();
+
+		return super.save();
 	}
 
 	public boolean updateCommentCount() {
@@ -93,6 +108,14 @@ public class Content extends BaseContent<Content> implements ISortModel<Content>
 
 	public String getUsername() {
 		return get("username");
+	}
+
+	public String getNickame() {
+		return get("nickname");
+	}
+
+	public String getNicknameOrUsername() {
+		return StringUtils.isNotBlank(getNickame()) ? getNickame() : getUsername();
 	}
 
 	public List<Metadata> getMetadatas() {
@@ -294,7 +317,7 @@ public class Content extends BaseContent<Content> implements ISortModel<Content>
 	}
 
 	private String imageByName(String name, String imageSrc) {
-		if (!StringUtils.isNotBlank(imageSrc)) {
+		if (StringUtils.isBlank(imageSrc)) {
 			return null;
 		}
 
@@ -356,6 +379,10 @@ public class Content extends BaseContent<Content> implements ISortModel<Content>
 			return m.getMetaValue();
 		}
 		return null;
+	}
+
+	public boolean commentIsEnable() {
+		return !COMMENT_STATUS_CLOSE.equals(getCommentStatus());
 	}
 
 }

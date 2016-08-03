@@ -21,7 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import io.jpress.Consts;
 import io.jpress.model.query.OptionQuery;
 import io.jpress.router.RouterConverter;
-import io.jpress.template.Module;
+import io.jpress.template.TplModule;
 import io.jpress.template.TemplateUtils;
 import io.jpress.utils.DateUtils;
 import io.jpress.utils.StringUtils;
@@ -68,7 +68,7 @@ public class ContentRouter extends RouterConverter {
 		String settingType = getRouterType();
 		// 静态模型
 		if (TYPE_STATIC_MODULE_SLUG.equals(settingType) || TYPE_STATIC_MODULE_ID.equals(settingType)) {
-			Module m = TemplateUtils.currentTemplate().getModuleByName(targetDirs[0]);
+			TplModule m = TemplateUtils.currentTemplate().getModuleByName(targetDirs[0]);
 			return m == null ? null : Consts.ROUTER_CONTENT + SLASH + targetDirs[1];
 		}
 		// 静态日期
@@ -91,7 +91,7 @@ public class ContentRouter extends RouterConverter {
 
 	public static String getRouterType() {
 		String type = OptionQuery.me().findValue("router_content_type");
-		if (!StringUtils.isNotBlank(type))
+		if (StringUtils.isBlank(type))
 			return DEFAULT_TYPE;
 
 		return type;
@@ -99,12 +99,12 @@ public class ContentRouter extends RouterConverter {
 
 	public static String getRouterPrefix() {
 		String prefix = OptionQuery.me().findValue("router_content_prefix");
-		if (!StringUtils.isNotBlank(prefix))
+		if (StringUtils.isBlank(prefix))
 			prefix = Consts.ROUTER_CONTENT.substring(1);
 		return prefix;
 	}
 
-	public static String getContentRouterSuffix(Module module) {
+	public static String getContentRouterSuffix(TplModule module) {
 		if (Consts.MODULE_PAGE.equals(module.getName())) {
 			if (enalbleFakeStatic()) {
 				return getFakeStaticSuffix();
@@ -123,7 +123,7 @@ public class ContentRouter extends RouterConverter {
 		}
 	}
 
-	public static String getContentRouterPreffix(Module module) {
+	public static String getContentRouterPreffix(TplModule module) {
 
 		if (Consts.MODULE_PAGE.equals(module.getName())) {
 			return SLASH;

@@ -17,7 +17,9 @@ package io.jpress.admin.controller;
 
 import java.math.BigInteger;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.jfinal.aop.Before;
 import com.jfinal.plugin.activerecord.Db;
@@ -29,16 +31,18 @@ import io.jpress.core.JBaseCRUDController;
 import io.jpress.core.interceptor.ActionCacheClearInterceptor;
 import io.jpress.interceptor.UCodeInterceptor;
 import io.jpress.model.Content;
+import io.jpress.model.Metadata;
 import io.jpress.model.ModelSorter;
 import io.jpress.model.Taxonomy;
 import io.jpress.model.query.ContentQuery;
 import io.jpress.model.query.MappingQuery;
+import io.jpress.model.query.MetaDataQuery;
 import io.jpress.model.query.TaxonomyQuery;
 import io.jpress.router.RouterMapping;
 import io.jpress.router.RouterNotAllowConvert;
-import io.jpress.template.Module;
-import io.jpress.template.Module.TaxonomyType;
 import io.jpress.template.TemplateUtils;
+import io.jpress.template.TplModule;
+import io.jpress.template.TplTaxonomyType;
 import io.jpress.utils.StringUtils;
 
 @RouterMapping(url = "/admin/taxonomy", viewPath = "/WEB-INF/admin/taxonomy")
@@ -56,8 +60,8 @@ public class _TaxonomyController extends JBaseCRUDController<Taxonomy> {
 
 	public void index() {
 		String moduleName = getContentModule();
-		Module module = TemplateUtils.currentTemplate().getModuleByName(moduleName);
-		TaxonomyType type = module.getTaxonomyTypeByType(getType());
+		TplModule module = TemplateUtils.currentTemplate().getModuleByName(moduleName);
+		TplTaxonomyType type = module.getTaxonomyTypeByType(getType());
 		BigInteger id = getParaToBigInteger("id");
 
 		List<Taxonomy> taxonomys = TaxonomyQuery.me().findListByModuleAndTypeAsSort(moduleName, type.getName());
@@ -74,33 +78,31 @@ public class _TaxonomyController extends JBaseCRUDController<Taxonomy> {
 		if (id != null && taxonomys != null) {
 			ModelSorter.removeTreeBranch(taxonomys, id);
 		}
-		
-		if(TaxonomyType.TYPE_SELECT.equals(type.getFormType())){
+
+		if (TplTaxonomyType.TYPE_SELECT.equals(type.getFormType())) {
 			Page<Taxonomy> page = TaxonomyQuery.me().doPaginate(1, Integer.MAX_VALUE, getContentModule(), getType());
 			ModelSorter.sort(page.getList());
 			setAttr("page", page);
-		}else if(TaxonomyType.TYPE_INPUT.equals(type.getFormType())){
-			Page<Taxonomy> page = TaxonomyQuery.me().doPaginate(getPageNumbere(), getPageSize(), getContentModule(), getType());
+		} else if (TplTaxonomyType.TYPE_INPUT.equals(type.getFormType())) {
+			Page<Taxonomy> page = TaxonomyQuery.me().doPaginate(getPageNumbere(), getPageSize(), getContentModule(),
+					getType());
 			setAttr("page", page);
 		}
-		
 
 		setAttr("module", module);
 		setAttr("type", type);
 		setAttr("taxonomys", taxonomys);
 	}
 
-
-
 	public void save() {
 		Taxonomy m = getModel(Taxonomy.class);
 
-		if (!StringUtils.isNotBlank(m.getTitle())) {
+		if (StringUtils.isBlank(m.getTitle())) {
 			renderAjaxResultForError("名称不能为空！");
 			return;
 		}
 
-		if (!StringUtils.isNotBlank(m.getSlug())) {
+		if (StringUtils.isBlank(m.getSlug())) {
 			renderAjaxResultForError("别名不能为空！");
 			return;
 		}
@@ -151,12 +153,12 @@ public class _TaxonomyController extends JBaseCRUDController<Taxonomy> {
 			public boolean run() throws SQLException {
 				if (TaxonomyQuery.me().deleteById(id)) {
 					MappingQuery.me().deleteByTaxonomyId(id);
-					
+
 					Content content = ContentQuery.me().findFirstByModuleAndObjectId(Consts.MODULE_MENU, id);
 					if (content != null) {
 						content.delete();
 					}
-					
+
 					return true;
 				}
 				return false;
@@ -168,6 +170,67 @@ public class _TaxonomyController extends JBaseCRUDController<Taxonomy> {
 		} else {
 			renderAjaxResultForError();
 		}
+	}
+
+	public void set_layer() {
+		String moduleName = getContentModule();
+		TplModule module = TemplateUtils.currentTemplate().getModuleByName(moduleName);
+		TplTaxonomyType type = module.getTaxonomyTypeByType(getType());
+
+		final BigInteger id = getParaToBigInteger("id");
+		Taxonomy taxonomy = TaxonomyQuery.me().findById(id);
+		setAttr("taxonomy", taxonomy);
+		setAttr("type", type);
+	}
+
+	public void set_layer_save() {
+		final Taxonomy taxonomy = getModel(Taxonomy.class);
+
+		final HashMap<String, String> metas = new HashMap<String, String>();
+		Map<String, String[]> requestMap = getParaMap();
+		if (requestMap != null) {
+			for (Map.Entry<String, String[]> entry : requestMap.entrySet()) {
+				if (entry.getKey().startsWith("meta_")) {
+					metas.put(entry.getKey().substring(5), entry.getValue()[0]);
+				}
+			}
+		}
+
+		boolean saved = Db.tx(new IAtom() {
+
+			@Override
+			public boolean run() throws SQLException {
+				if (!taxonomy.saveOrUpdate()) {
+					return false;
+				}
+
+				for (Map.Entry<String, String> entry : metas.entrySet()) {
+
+					Metadata metadata = MetaDataQuery.me().findByTypeAndIdAndKey(Taxonomy.METADATA_TYPE,
+							taxonomy.getId(), entry.getKey());
+
+					if (metadata == null) {
+						metadata = new Metadata();
+					}
+					metadata.setMetaKey(entry.getKey());
+					metadata.setMetaValue(entry.getValue());
+					metadata.setObjectId(taxonomy.getId());
+					metadata.setObjectType(Taxonomy.METADATA_TYPE);
+					if (!metadata.saveOrUpdate()) {
+						return false;
+					}
+				}
+
+				return true;
+			}
+		});
+
+		if (saved) {
+			renderAjaxResultForSuccess();
+		} else {
+			renderAjaxResultForError();
+		}
+
 	}
 
 }

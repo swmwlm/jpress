@@ -87,6 +87,10 @@ public class StringUtils {
 		return string != null && !string.trim().equals("");
 	}
 
+	public static boolean isBlank(String string) {
+		return string == null || string.trim().equals("");
+	}
+
 	public static long toLong(String value, Long defaultValue) {
 		try {
 			if (value == null || "".equals(value.trim()))
@@ -133,6 +137,8 @@ public class StringUtils {
 	}
 
 	public static boolean isNumeric(String str) {
+		if (str == null)
+			return false;
 		for (int i = str.length(); --i >= 0;) {
 			int chr = str.charAt(i);
 			if (chr < 48 || chr > 57)

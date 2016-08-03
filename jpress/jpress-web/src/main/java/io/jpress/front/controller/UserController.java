@@ -43,7 +43,7 @@ public class UserController extends BaseFrontController {
 	@Clear(UserInterceptor.class)
 	public void index() {
 		String action = getPara();
-		if (!StringUtils.isNotBlank(action)) {
+		if (StringUtils.isBlank(action)) {
 			renderError(404);
 		}
 
@@ -152,7 +152,7 @@ public class UserController extends BaseFrontController {
 		String password = getPara("password");
 		String confirm_password = getPara("confirm_password");
 
-		if (!StringUtils.isNotBlank(username)) {
+		if (StringUtils.isBlank(username)) {
 			renderForRegister("username is empty!", Consts.ERROR_CODE_USERNAME_EMPTY);
 			return;
 		}
@@ -242,7 +242,9 @@ public class UserController extends BaseFrontController {
 		int pageNumber = getParaToInt(1, 1);
 		BigInteger userId = ((User) getAttr("user")).getId();
 
-		setAttr("userContentPage", new UserContentPageTag(userId, pageNumber));
+		setAttr("userContentPage", new UserContentPageTag(action, userId, pageNumber));
+		setAttr("action", action);
+		setAttr(action, "active");
 	}
 
 }

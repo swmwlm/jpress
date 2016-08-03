@@ -69,9 +69,10 @@ public class ContentController extends BaseFrontController {
 
 		setAttr("p", pageNumber);
 		setAttr("content", content);
+		setAttr("nextContent", ContentQuery.me().findNext(content));
+		setAttr("previousContent", ContentQuery.me().findPrevious(content));
 		setAttr("user", UserQuery.me().findById(content.getUserId()));
 
-		
 		setAttr("commentPageTag", new CommentPageTag(content, pageNumber));
 
 		List<Taxonomy> taxonomys = TaxonomyQuery.me().findListByContentId(content.getId());
@@ -126,9 +127,9 @@ public class ContentController extends BaseFrontController {
 	private void initRequest() {
 		String idOrSlug = getPara(0);
 		if (StringUtils.isNotBlank(idOrSlug)) {
-			try {
+			if (StringUtils.isNumeric(idOrSlug)) {
 				id = new BigInteger(idOrSlug);
-			} catch (Exception e) {
+			} else {
 				slug = idOrSlug;
 			}
 			pageNumber = getParaToInt(1, 1);
@@ -140,7 +141,6 @@ public class ContentController extends BaseFrontController {
 				renderError(404);
 				return;
 			}
-
 			pageNumber = getParaToInt("p", 1);
 		}
 
